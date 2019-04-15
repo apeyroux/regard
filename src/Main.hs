@@ -12,7 +12,7 @@ import           Data.List
 import           Data.Map
 import           Data.Time.Clock
 import           Data.Yaml (decodeEither', ParseException)
-import           Network.HTTP.Client as HCT
+import           Network.HTTP.Client as HTTPC
 import qualified Network.HTTP.Proxy as Proxy
 import qualified Network.HTTP.Simple as HTTP
 import           Network.HTTP.Types.Status
@@ -31,7 +31,7 @@ checker srv clientId req =
     Just u -> do
       -- revoir la construction de l'url (pas de ////xxxx)
       r <- HTTP.parseRequest (srv <> "/" <> clientId)
-      let r' = HCT.urlEncodedBody [("url", u)] (r { HCT.method = "POST" })
+      let r' = HTTPC.urlEncodedBody [("url", u)] (r { HTTPC.method = "POST" })
       resp <- HTTP.httpLBS r'
       if statusCode (HTTP.getResponseStatus resp) /= 200 then
         return (Left (responseLBS status401
