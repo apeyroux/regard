@@ -58,7 +58,7 @@ main = do
       case decodeEither' cfg :: Either ParseException SrvConfig of
         Left ex -> print ex
         Right srvCfg -> do
-          liftIO $ putStrLn $ "Use this wl : " <>  show (srvConfigWL srvCfg)
+          putStrLn $ "Use this wl : " <>  show (srvConfigWL srvCfg)
           scottyOpts sOpts $ 
             post "/:client/" $ do
               idClient <- param "client"
