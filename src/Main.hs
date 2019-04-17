@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Main where
 
@@ -58,6 +59,17 @@ checker srv clientId req =
 sOpts :: Options
 sOpts = def { verbose = 0, settings = (settings def) { settingsPort = 3000 } }
 
+loadCfg :: Maybe FilePath -> IO BS.ByteString
+loadCfg (Just f) = BS.readFile f
+loadCfg Nothing = do
+  -- check dir exist
+  f <- (</> "config.yaml") <$> getXdgDirectory XdgConfig "regard"
+  -- create dir if missing
+  pure (takeDirectory f) >>= createDirectoryIfMissing True
+  -- load file
+  doesFileExist f >>= (\case k | k -> BS.readFile f
+                               | otherwise -> cfg2file f >> loadCfg Nothing)
+
 main :: IO ()
 main = do
   opts <- execParser
@@ -70,19 +82,7 @@ main = do
         , Proxy.proxyRequestModifier = checker (coAuthServer c) (coName c)
         }
     SubCmdServer cfile -> do
-      putStrLn "load white liste ..."
-      cfgd <- getXdgDirectory XdgConfig "regard"
-      let cfgf = cfgd </> "config.yaml"
-      bcfgf <- doesPathExist cfgf
-      cfg   <- case soConfigFile cfile of
-        Just cfgf -> BS.readFile cfgf
-        Nothing   -> if bcfgf
-          then BS.readFile cfgf
-          else do
-            putStrLn "init de la config ..."
-            cfg2file cfgf
-            BS.readFile cfgf
-
+      cfg <- loadCfg (soConfigFile cfile)
       case decodeEither' cfg :: Either ParseException SrvConfig of
         Left  ex     -> print ex
         Right srvCfg -> do
