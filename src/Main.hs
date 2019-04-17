@@ -61,14 +61,17 @@ sOpts = def { verbose = 0, settings = (settings def) { settingsPort = 3000 } }
 
 loadCfg :: Maybe FilePath -> IO BS.ByteString
 loadCfg (Just f) = BS.readFile f
-loadCfg Nothing = do
+loadCfg Nothing  = do
   -- check dir exist
   f <- (</> "config.yaml") <$> getXdgDirectory XdgConfig "regard"
   -- create dir if missing
   pure (takeDirectory f) >>= createDirectoryIfMissing True
   -- load file
-  doesFileExist f >>= (\case k | k -> BS.readFile f
-                               | otherwise -> cfg2file f >> loadCfg Nothing)
+  doesFileExist f
+    >>= (\case
+          k | k         -> BS.readFile f
+            | otherwise -> cfg2file f >> loadCfg Nothing
+        )
 
 main :: IO ()
 main = do
