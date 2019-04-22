@@ -5,30 +5,31 @@
 module Main where
 
 import           Control.Monad.IO.Class
-import qualified Data.ByteString               as BS
-import qualified Data.ByteString.Char8         as BSC
-import qualified Data.ByteString.Lazy          as BLS
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy as BLS
 import           Data.Default
 import           Data.List
 import           Data.Map
+import qualified Data.Text as T
 import           Data.Time.Clock
-import           Data.Yaml                      ( decodeEither'
-                                                , ParseException
-                                                )
-import           Network.HTTP.Client           as HTTPC
-import qualified Network.HTTP.Proxy            as Proxy
-import qualified Network.HTTP.Simple           as HTTP
+import           Data.Yaml ( decodeEither'
+                           , ParseException
+                           )
+import qualified Database.SQLite3 as SQLite3
+import           Network.HTTP.Client as HTTPC
+import qualified Network.HTTP.Proxy as Proxy
+import qualified Network.HTTP.Simple as HTTP
 import           Network.HTTP.Types.Status
 import           Network.URI
-import           Network.Wai                    ( Response
-                                                , responseLBS
-                                                )
+import           Network.Wai ( Response
+                             , responseLBS
+                             )
 import           Network.Wai.Handler.Warp.Internal
 import           Options.Applicative
-import           Web.Scotty
 import           System.Directory
 import           System.FilePath.Posix
-
+import           Web.Scotty
 
 import           Regard.Opts
 import           Regard.Config
@@ -58,6 +59,19 @@ checker srv clientId req =
 
 sOpts :: Options
 sOpts = def { verbose = 0, settings = (settings def) { settingsPort = 3000 } }
+
+withDb :: (SQLite3.Database -> IO ()) -> IO ()
+withDb f = do
+  db <- (</> "regard.db") <$> getXdgDirectory XdgConfig "regard"
+  doesFileExist db >>= (\case
+                           b | b -> do
+                                 d <- SQLite3.open (T.pack db)
+                                 f d
+                                 SQLite3.close d
+                             | otherwise -> do
+                                 pure (takeDirectory db) >>= createDirectoryIfMissing True
+                                 withDb f
+                       )
 
 loadCfg :: Maybe FilePath -> IO BS.ByteString
 loadCfg (Just f) = BS.readFile f
@@ -90,26 +104,28 @@ main = do
         Left  ex     -> print ex
         Right srvCfg -> do
           putStrLn $ "Use this wl : " <> show (srvConfigWL srvCfg)
-          scottyOpts sOpts $ post "/:client/" $ do
-            idClient <- param "client"
-            url      <- param "url"
-            now      <- liftIO getCurrentTime
-            if any (isInfixOf url) (srvConfigWL srvCfg)
-              then do
-                liftIO
-                  $  putStrLn
-                  $  show now
-                  <> " OK c:"
-                  <> idClient
-                  <> " - "
-                  <> url
-                status status200
-              else do
-                liftIO
-                  $  putStrLn
-                  $  show now
-                  <> " KO c:"
-                  <> idClient
-                  <> " - "
-                  <> url
-                status status401
+          withDb $ \db -> do
+            print db
+            scottyOpts sOpts $ post "/:client/" $ do
+              idClient <- param "client"
+              url      <- param "url"
+              now      <- liftIO getCurrentTime
+              if any (isInfixOf url) (srvConfigWL srvCfg)
+                then do
+                  liftIO
+                    $  putStrLn
+                    $  show now
+                    <> " OK c:"
+                    <> idClient
+                    <> " - "
+                    <> url
+                  status status200
+                else do
+                  liftIO
+                    $  putStrLn
+                    $  show now
+                    <> " KO c:"
+                    <> idClient
+                    <> " - "
+                    <> url
+                  status status401

@@ -27,6 +27,7 @@ executable regard
                      , bytestring
                      , containers
                      , data-default
+                     , direct-sqlite
                      , directory
                      , filepath
                      , http-client >= 0.6.4
@@ -36,6 +37,7 @@ executable regard
                      , network-uri
                      , optparse-applicative
                      , scotty
+                     , text
                      , time
                      , url
                      , wai
